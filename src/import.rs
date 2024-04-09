@@ -6,9 +6,10 @@ use std::{fs, io};
 use crate::{Document, Error, Gltf, Result};
 use image_crate::ImageFormat::{Jpeg, Png};
 use std::path::Path;
+use image_crate::DynamicImage;
 
 /// Return type of `import`.
-type Import = (Document, Vec<buffer::Data>, Vec<image::Data>);
+type Import = (Document, Vec<buffer::Data>, Vec<DynamicImage>);
 
 /// Represents the set of URI schemes the importer supports.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -139,11 +140,11 @@ impl image::Data {
     /// Construct an image data object by reading the given source.
     /// If `base` is provided, then external filesystem references will
     /// be resolved from this directory.
-    pub fn from_source(
+    pub fn dyn_from_source(
         source: image::Source<'_>,
         base: Option<&Path>,
         buffer_data: &[buffer::Data],
-    ) -> Result<Self> {
+    ) -> Result<DynamicImage> {
         #[cfg(feature = "guess_mime_type")]
         let guess_format = |encoded_image: &[u8]| match image_crate::guess_format(encoded_image) {
             Ok(image_crate::ImageFormat::Png) => Some(Png),
@@ -207,7 +208,7 @@ impl image::Data {
             _ => return Err(Error::ExternalReferenceInSliceImport),
         };
 
-        image::Data::new(decoded_image)
+        Ok(decoded_image)
     }
 }
 
@@ -221,10 +222,10 @@ pub fn import_images(
     document: &Document,
     base: Option<&Path>,
     buffer_data: &[buffer::Data],
-) -> Result<Vec<image::Data>> {
+) -> Result<Vec<DynamicImage>> {
     let mut images = Vec::new();
     for image in document.images() {
-        images.push(image::Data::from_source(image.source(), base, buffer_data)?);
+        images.push(image::Data::dyn_from_source(image.source(), base, buffer_data)?);
     }
     Ok(images)
 }
